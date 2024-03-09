@@ -3,13 +3,20 @@ import urllib.parse
 
 from flask import Flask, redirect, request, jsonify, session, render_template, url_for
 from datetime import datetime, timedelta
-from playlist import Playlist
+# from playlist import Playlist
 import os
 from dotenv import load_dotenv
 
-from spotifyclient import SpotifyClient
+# from spotifyclient import SpotifyClient
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
+from imagetodesc import image_to_desc
+# from werkzeug.utils import secure_filename
+import base64
+from utils import create_playlist_fun
+
+
+
 
 load_dotenv()
 
@@ -25,6 +32,8 @@ AUTH_URL = os.getenv('AUTH_URL')
 TOKEN_URL = os.getenv('TOKEN_URL')
 API_BASE_URL = os.getenv('API_BASE_URL')
 
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+
 @app.route('/')
 def index():
     return "Welcome to my Spotify App <a href='/login'> Login with Spotify</a>"
@@ -32,7 +41,7 @@ def index():
 
 @app.route('/login')
 def login():
-    scope = 'user-read-private user-read-email playlist-read-private playlist-modify-public'
+    scope = 'user-read-private user-read-email playlist-read-private playlist-modify-public playlist-modify-private ugc-image-upload'
 
     params = {
         'client_id': CLIENT_ID,
@@ -75,62 +84,78 @@ def my_form():
     return render_template('form.html')
     
 @app.route('/playlistsform', methods=['GET', 'POST'])
-# def get_playlists():
-#     if 'access_token' not in session:
-#         return redirect('/login')
-    
-#     if datetime.now().timestamp() > session['expires_at']:
-#         return redirect('/refresh-token')
-
-#     headers = {
-#         'Authorization': f"Bearer {session['access_token']}"
-#     }
-
-#     response = requests.get(API_BASE_URL + 'me/playlists', headers=headers)
-#     playlists = response.json()
-
-#     return jsonify(playlists)
-
 def get_playlist_info(): #getting playlist name and image (to create mood)
     if 'access_token' not in session:
         return redirect('/login')
     if datetime.now().timestamp() > session['expires_at']:
         return redirect('/refresh-token')
+
     print(request.method)
     if request.method == 'POST':
         pl_name = request.form['playlist_name']
-        session['pl_name'] = pl_name 
-        # return render_template('form.html', playlist_name=pl_name)
-        return redirect('/playlists')
+        playlist_image = request.files['img']
 
-    print(request.form.get('playlist_name'))
-    return render_template('form.html')
+    else:
+        pl_name = request.form.get('playlist_name')
+        playlist_image = request.files.get('img')
+    
+    session['pl_name'] = pl_name 
+    temp = base64.b64encode(playlist_image.read()).decode('utf-8') 
+    result1 = image_to_desc(temp, OPENAI_API_KEY)
+    session['playlist_image'] = result1
+
+    return redirect('/playlists')
+
 
 @app.route('/playlists', methods=['GET', 'POST'])
 def create_playlist():
     pl_name = session['pl_name']
-    #scope1 = 'playlist-modify-public'
 
     sp = spotipy.Spotify(auth=session['access_token'])
     user = sp.current_user()
 
 
-    # username = 'zyumn1'
-    # sp1 = spotipy.Spotify(
-    #     auth_manager=SpotifyOAuth(
-    #         scope=scope1,
-    #         client_id=CLIENT_ID,
-    #         client_secret=CLIENT_SECRET,
-    #         redirect_uri=REDIRECT_URI,
-    #         username=user['id']
-    #     )
-    # )
-    def create_playlist(sp, username, playlist_name, playlist_description):
-        playlists = sp.user_playlist_create(username, playlist_name, description = playlist_description)
+    response1 = session['playlist_image'].split('$&$')
+    prompt = response1[0]
+    songlist = response1[1].split('&,')
+    create_playlist_fun(sp, user['id'], pl_name, 'Test playlist created using python!')
+    list_of_songs = []
 
-    create_playlist(sp, user['id'], pl_name, 'Test playlist created using python!')
-    print(f"\nPlaylist was created successfully.")
-    return "this is a list"
+    for songitem in songlist:
+        print(songitem)
+        songitem = songitem.replace("\n","").split(': ')
+        song = songitem[0]
+        artist = songitem[1]
+        songsearch = sp.search(q=song)
+        list_of_songs.append(songsearch['tracks']['items'][0]['uri'])
+
+    preplaylist =sp.user_playlists(user=user['id'])
+    #print(preplaylist['items'][0]['id'])
+    pplaylist = preplaylist['items'][0]['id']
+    session['plst_name'] = pplaylist
+    sp.user_playlist_add_tracks(user = user['id'], playlist_id=pplaylist, tracks=list_of_songs)
+
+    with open("images/temp1.jpg", "rb") as image_file:  # opening file safely
+        image_64_encode = base64.b64encode(image_file.read())
+    
+    if len(image_64_encode) > 256000: # check if image is too big
+        print("Image is too big: ", len(image_64_encode))
+    else:
+        sp.playlist_upload_cover_image(pplaylist, image_64_encode)
+        print("Image added.")
+
+
+
+    
+    #print(f"\nPlaylist was created successfully.")
+    return redirect('/curatedplaylist')
+
+@app.route('/curatedplaylist', methods=['GET', 'POST'])
+def display_curatedplaylist():
+    #print(session['playlist_image'])
+    plst = f"https://open.spotify.com/embed/playlist/{session['plst_name']}?utm_source=generator&theme=0"
+    return render_template('listpl.html', plst_url=plst)
+
 
 
 @app.route('/refresh_token')
@@ -152,6 +177,7 @@ def refresh_token():
         session['access_token'] = new_token_info['access_token']
         session['expires_at'] = datetime.now().timestamp() + new_token_info['expires_in']
 
+        
         return redirect('/playlistsform')
     
 

@@ -2,14 +2,14 @@
 <html lang="en">
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
     <title>Mood of Music</title>
     <!-- <link rel="stylesheet" href="./style.css" /> -->
-    <link href="{{ url_for('static', filename='styles/style.css')}}" rel="stylesheet"/>
+    <link href="{{ url_for('static', filename='styles/styles.css')}}" rel="stylesheet"/>
   </head>
   <body>
     <h1>Create Playlist Name</h1>
-    <form action = '/playlistsform' method="POST">
-
+    <form id="playlistForm" action="/playlistsform" method="POST" enctype="multipart/form-data">
       <div class="form__fieldset">
         <label for="amount" class="form__label">Playlist Name:</label>
         <input type="text" name="playlist_name" id="playlist_name" class="form__input" value="fun playlist"/>
@@ -17,16 +17,17 @@
         <label for="img">Select image:</label>
         <input type="file" id="img" name="img" accept="image/*">
       </div>
-
-
       <div class="form__fieldset">
-        <input
-          class="form__submit form__input"
-          type="submit"
-          value="Create Playlist"
-        />
+        <input id="submitBtn" class="form__submit form__input" type="submit" value="Create Playlist"/>
       </div>
     </form>
-    input is {{playlist_name}}
+    <div class="loading-overlay" id="loadingOverlay">
+      <div class="loading-spinner"></div>
+    </div>
+    <script>
+      document.getElementById('playlistForm').addEventListener('submit', function() {
+        document.getElementById('loadingOverlay').style.display = 'block';
+      });
+    </script>
   </body>
 </html>
