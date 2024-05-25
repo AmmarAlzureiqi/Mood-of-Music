@@ -50,7 +50,7 @@ def cartoonifyimage(base64_image, openai_key):
 load_dotenv()
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 temp = base64.b64encode(open('images/sunset1.png', "rb").read()).decode('utf-8')
-print(temp)
+#print(temp)
 
 #res = cartoonifyimage(temp, os.getenv('OPENAI_API_KEY'))
 #print(res)

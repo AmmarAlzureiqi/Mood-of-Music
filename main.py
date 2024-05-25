@@ -93,15 +93,20 @@ def get_playlist_info(): #getting playlist name and image (to create mood)
     print(request.method)
     if request.method == 'POST':
         pl_name = request.form['playlist_name']
+        pl_theme = request.form['playlist_theme']
         playlist_image = request.files['img']
 
     else:
         pl_name = request.form.get('playlist_name')
+        pl_theme = request.form.get['playlist_theme']
         playlist_image = request.files.get('img')
     
     session['pl_name'] = pl_name 
+    session['pl_theme'] = pl_theme 
+
     temp = base64.b64encode(playlist_image.read()).decode('utf-8') 
-    result1 = image_to_desc(temp, OPENAI_API_KEY)
+    session['image'] = temp 
+    result1 = image_to_desc(temp, OPENAI_API_KEY, pl_theme=pl_theme)
     session['playlist_image'] = result1
 
     return redirect('/playlists')
@@ -110,13 +115,15 @@ def get_playlist_info(): #getting playlist name and image (to create mood)
 @app.route('/playlists', methods=['GET', 'POST'])
 def create_playlist():
     pl_name = session['pl_name']
+    pl_theme = session['pl_theme']
 
     sp = spotipy.Spotify(auth=session['access_token'])
     user = sp.current_user()
 
-
     response1 = session['playlist_image'].split('$&$')
     prompt = response1[0]
+    print('---------')
+    print(prompt)
     songlist = response1[1].split('&,')
     create_playlist_fun(sp, user['id'], pl_name, 'Test playlist created using python!')
     list_of_songs = []
@@ -135,8 +142,11 @@ def create_playlist():
     session['plst_name'] = pplaylist
     sp.user_playlist_add_tracks(user = user['id'], playlist_id=pplaylist, tracks=list_of_songs)
 
+    print('-----')
+    #print(session['image'])
     with open("images/temp1.jpg", "rb") as image_file:  # opening file safely
         image_64_encode = base64.b64encode(image_file.read())
+        print(image_64_encode)
     
     if len(image_64_encode) > 256000: # check if image is too big
         print("Image is too big: ", len(image_64_encode))
