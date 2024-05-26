@@ -1,20 +1,20 @@
 import requests
 import urllib.parse
-
-from flask import Flask, redirect, request, jsonify, session, render_template, url_for
-from datetime import datetime, timedelta
-# from playlist import Playlist
 import os
-from dotenv import load_dotenv
-
-# from spotifyclient import SpotifyClient
 import spotipy
-from spotipy.oauth2 import SpotifyOAuth
-from imagetodesc import image_to_desc
-# from werkzeug.utils import secure_filename
 import base64
-from utils import create_playlist_fun
+import db
+import openai
+import mysql.connector
 
+from flask import Flask, redirect, request, jsonify, session, render_template, url_for, flash
+from datetime import datetime, timedelta
+from dotenv import load_dotenv
+from utils import create_playlist_fun, generate_image, compress_image_to_b64, image_to_desc
+from PIL import Image 
+from io import BytesIO
+from openai import OpenAI, OpenAIError
+from mysql.connector import errorcode
 
 
 
@@ -42,7 +42,6 @@ def index():
 @app.route('/login')
 def login():
     scope = 'user-read-private user-read-email playlist-read-private playlist-modify-public playlist-modify-private ugc-image-upload'
-
     params = {
         'client_id': CLIENT_ID,
         'response_type': 'code',
@@ -91,26 +90,94 @@ def get_playlist_info(): #getting playlist name and image (to create mood)
         return redirect('/refresh-token')
 
     print(request.method)
-    if request.method == 'POST':
-        pl_name = request.form['playlist_name']
-        pl_theme = request.form['playlist_theme']
-        playlist_image = request.files['img']
+    connection = db.getdb()
 
-    else:
-        pl_name = request.form.get('playlist_name')
-        pl_theme = request.form.get['playlist_theme']
-        playlist_image = request.files.get('img')
+    pl_name = request.form.get('playlist_name')
+    pl_theme = request.form.get('playlist_theme')
+    playlist_image = request.files.get('img')
+
+    if not pl_name or not pl_theme or not playlist_image:
+        flash('All fields are required, including an image. Please try again.')
+        return redirect('/playlistsform')
+
+    playlist_image_temp = playlist_image
+    im = Image.open(playlist_image_temp)
+    rgb_im = im.convert("RGB")
+    rgb_im = rgb_im.resize((264, 264), Image.LANCZOS)
     
-    session['pl_name'] = pl_name 
-    session['pl_theme'] = pl_theme 
+    buffered = BytesIO()
+    rgb_im.save(buffered, format="JPEG", quality=85)
 
-    temp = base64.b64encode(playlist_image.read()).decode('utf-8') 
-    session['image'] = temp 
-    result1 = image_to_desc(temp, OPENAI_API_KEY, pl_theme=pl_theme)
+    img_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
+
+    sp = spotipy.Spotify(auth=session['access_token'], requests_timeout=30)
+    user = sp.current_user()
+
+    try:
+        result1 = image_to_desc(img_str, OPENAI_API_KEY, pl_theme=pl_theme)
+    except Exception as e:
+        print(f"Failed to get image description: {e}")
+        return "Error", 500
+
+    if result1 is None:
+        return redirect('/playlistsform')
+
     session['playlist_image'] = result1
 
-    return redirect('/playlists')
+    create_playlist_fun(sp, user['id'], pl_name, 'Test playlist created using python!')
+    preplaylist = sp.user_playlists(user=user['id'])
+    pplaylist = preplaylist['items'][0]['id']
 
+    prmt = result1.split('$&$')[0]
+
+    image = None
+
+    try:
+        image = generate_image(prmt)
+    except OpenAIError as e:
+        print('e')
+            
+    if image is None:
+        sp.playlist_upload_cover_image(pplaylist, img_str)
+    else:
+        compressed_image_b64 = compress_image_to_b64(image, quality=75)
+        i = 5
+        while len(compressed_image_b64) >= 170000:
+            compressed_image_b64 = compress_image_to_b64(image, quality=75 - i)
+            i += 5
+
+        sp.playlist_upload_cover_image(pplaylist, compressed_image_b64)
+            
+    preplaylist = sp.user_playlists(user=user['id'])
+    pplaylist = preplaylist['items'][0]['id']
+
+    img_url = preplaylist['items'][0]['images'][0]['url']
+
+    cursor = connection.cursor()
+
+    try:
+        cursor.execute(f"INSERT INTO accounts (accname) VALUES ('{user['id']}')")
+    except mysql.connector.Error as err:
+        if err.errno == errorcode.ER_DUP_ENTRY:  # Handle duplicate entry error
+            connection.rollback()
+            print(f"Duplicate entry found for user ID: {user['id']}")
+        else:
+            raise  # Re-raise the exception if it's not a duplicate entry error
+    print(f"image url is : {img_url}")
+    try:
+        cursor.execute(f"INSERT INTO playlists (playlistID, accname, pldate, prompt, image_url) VALUES ('{pplaylist}', '{user['id']}', '{datetime.today().strftime('%Y-%m-%d %H:%M:%S')}', '{prmt}', '{img_url}')")
+    except mysql.connector.Error as err:
+        if err.errno == errorcode.ER_DUP_ENTRY:  # Handle duplicate entry error
+            connection.rollback()
+            print(f"Duplicate entry found for user ID: {pplaylist}")
+        else:
+            raise  # Re-raise the exception if it's not a duplicate entry error
+
+
+    connection.commit()
+    cursor.close()
+
+    return redirect('/playlists')
 
 @app.route('/playlists', methods=['GET', 'POST'])
 def create_playlist():
@@ -122,40 +189,30 @@ def create_playlist():
 
     response1 = session['playlist_image'].split('$&$')
     prompt = response1[0]
-    print('---------')
-    print(prompt)
+    # print('---------')
+    # print(prompt)
     songlist = response1[1].split('&,')
-    create_playlist_fun(sp, user['id'], pl_name, 'Test playlist created using python!')
+    print(len(songlist))
+
+    if len(songlist) == 1:
+        songlist = response1[1].split('&),')
+
+    #create_playlist_fun(sp, user['id'], pl_name, 'Test playlist created using python!')
     list_of_songs = []
 
     for songitem in songlist:
-        print(songitem)
         songitem = songitem.replace("\n","").split(': ')
         song = songitem[0]
         artist = songitem[1]
         songsearch = sp.search(q=song)
         list_of_songs.append(songsearch['tracks']['items'][0]['uri'])
+    print(list_of_songs)
 
     preplaylist =sp.user_playlists(user=user['id'])
     #print(preplaylist['items'][0]['id'])
     pplaylist = preplaylist['items'][0]['id']
     session['plst_name'] = pplaylist
     sp.user_playlist_add_tracks(user = user['id'], playlist_id=pplaylist, tracks=list_of_songs)
-
-    print('-----')
-    #print(session['image'])
-    with open("images/temp1.jpg", "rb") as image_file:  # opening file safely
-        image_64_encode = base64.b64encode(image_file.read())
-        print(image_64_encode)
-    
-    if len(image_64_encode) > 256000: # check if image is too big
-        print("Image is too big: ", len(image_64_encode))
-    else:
-        sp.playlist_upload_cover_image(pplaylist, image_64_encode)
-        print("Image added.")
-
-
-
     
     #print(f"\nPlaylist was created successfully.")
     return redirect('/curatedplaylist')

@@ -54,7 +54,7 @@ def image_to_desc(base64_image, openai_key, pl_theme="None",):
   }
 
   response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
-  print(response)
+  # print(response.json())
   res1 = response.json()['choices'][0]['message']['content']
   return res1
 
