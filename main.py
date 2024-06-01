@@ -3,14 +3,13 @@ import urllib.parse
 import os
 import spotipy
 import base64
-import db
 import openai
 import mysql.connector
 
 from flask import Flask, redirect, request, jsonify, session, render_template, url_for, flash
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
-from utils import create_playlist_fun, generate_image, compress_image_to_b64, image_to_desc
+from utils import create_playlist_fun, generate_image, compress_image_to_b64, image_to_desc, convert_to_jpg_b64, getdb, close_db
 from PIL import Image 
 from io import BytesIO
 from openai import OpenAI, OpenAIError
@@ -34,9 +33,10 @@ API_BASE_URL = os.getenv('API_BASE_URL')
 
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
+
 @app.route('/')
 def index():
-    return "Welcome to my Spotify App <a href='/login'> Login with Spotify</a>"
+    return render_template('index.html')
 
 
 @app.route('/login')
@@ -89,8 +89,7 @@ def get_playlist_info(): #getting playlist name and image (to create mood)
     if datetime.now().timestamp() > session['expires_at']:
         return redirect('/refresh-token')
 
-    print(request.method)
-    connection = db.getdb()
+    # print(request.method)
 
     pl_name = request.form.get('playlist_name')
     pl_theme = request.form.get('playlist_theme')
@@ -100,15 +99,9 @@ def get_playlist_info(): #getting playlist name and image (to create mood)
         flash('All fields are required, including an image. Please try again.')
         return redirect('/playlistsform')
 
-    playlist_image_temp = playlist_image
-    im = Image.open(playlist_image_temp)
-    rgb_im = im.convert("RGB")
-    rgb_im = rgb_im.resize((264, 264), Image.LANCZOS)
-    
-    buffered = BytesIO()
-    rgb_im.save(buffered, format="JPEG", quality=85)
+    im = Image.open(playlist_image)
 
-    img_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
+    img_str = convert_to_jpg_b64(im)
 
     sp = spotipy.Spotify(auth=session['access_token'], requests_timeout=30)
     user = sp.current_user()
@@ -117,9 +110,11 @@ def get_playlist_info(): #getting playlist name and image (to create mood)
         result1 = image_to_desc(img_str, OPENAI_API_KEY, pl_theme=pl_theme)
     except Exception as e:
         print(f"Failed to get image description: {e}")
-        return "Error", 500
+        flash('Error generating image description. Please try again.')
+        return redirect('/playlistsform')
 
     if result1 is None:
+        flash('Failed to get image description from OpenAI.')
         return redirect('/playlistsform')
 
     session['playlist_image'] = result1
@@ -153,6 +148,7 @@ def get_playlist_info(): #getting playlist name and image (to create mood)
 
     img_url = preplaylist['items'][0]['images'][0]['url']
 
+    connection = getdb()
     cursor = connection.cursor()
 
     try:
@@ -164,8 +160,15 @@ def get_playlist_info(): #getting playlist name and image (to create mood)
         else:
             raise  # Re-raise the exception if it's not a duplicate entry error
     print(f"image url is : {img_url}")
+
+    print('--------')
+    print(pplaylist)
+    print(user['id'])
+    print(datetime.today().strftime('%Y-%m-%d %H:%M:%S'))
+    print(prmt)
+    prmt_escaped = prmt.replace("'", "''")
     try:
-        cursor.execute(f"INSERT INTO playlists (playlistID, accname, pldate, prompt, image_url) VALUES ('{pplaylist}', '{user['id']}', '{datetime.today().strftime('%Y-%m-%d %H:%M:%S')}', '{prmt}', '{img_url}')")
+        cursor.execute(f"INSERT INTO playlists (playlistID, accname, pldate, prompt, image_url) VALUES ('{pplaylist}', '{user['id']}', '{datetime.today().strftime('%Y-%m-%d %H:%M:%S')}', '{prmt_escaped}', '{img_url}')")
     except mysql.connector.Error as err:
         if err.errno == errorcode.ER_DUP_ENTRY:  # Handle duplicate entry error
             connection.rollback()
@@ -192,7 +195,6 @@ def create_playlist():
     # print('---------')
     # print(prompt)
     songlist = response1[1].split('&,')
-    print(len(songlist))
 
     if len(songlist) == 1:
         songlist = response1[1].split('&),')
@@ -220,7 +222,9 @@ def create_playlist():
 @app.route('/curatedplaylist', methods=['GET', 'POST'])
 def display_curatedplaylist():
     #print(session['playlist_image'])
+    #plst = f"https://open.spotify.com/embed/playlist/{session['plst_name']}?utm_source=generator"
     plst = f"https://open.spotify.com/embed/playlist/{session['plst_name']}?utm_source=generator&theme=0"
+    
     return render_template('listpl.html', plst_url=plst)
 
 
@@ -250,7 +254,3 @@ def refresh_token():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', debug=True, port = 5001)
-
-
-
-

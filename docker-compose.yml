@@ -1,0 +1,25 @@
+version: '3'
+
+services:
+  flask_app:
+    build: .
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    depends_on:
+      - mysql_db
+    volumes:
+      - .:/app
+
+  mysql_db:
+    image: mysql:latest
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: test_root
+      MYSQL_DATABASE: moodofmusic
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+volumes:
+  mysql_data:
