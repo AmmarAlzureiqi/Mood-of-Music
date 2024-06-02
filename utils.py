@@ -7,6 +7,9 @@ from io import BytesIO
 import base64
 import mysql.connector
 import os
+from flask import g
+import time
+
 
 def image_to_desc(base64_image, openai_key, pl_theme="None"):
     openai.api_key = openai_key
@@ -52,8 +55,6 @@ def image_to_desc(base64_image, openai_key, pl_theme="None"):
         "max_tokens": 500
     }
 
-    print(len(base64_image)/1000000)
-
     response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
     response_data = response.json()
     
@@ -61,8 +62,7 @@ def image_to_desc(base64_image, openai_key, pl_theme="None"):
         raise Exception(f"OpenAI API error: {response_data.get('error', {}).get('message', 'Unknown error')}")
     
     res1 = response_data['choices'][0]['message']['content']
-    print(response.json())
-    print('done')
+    #print(response.json())
     return res1
 
     
@@ -153,22 +153,60 @@ def convert_to_jpg_b64(img):
     return img_str
 
 
-def getdb():
-    if 'db' not in g or not g.db.is_connected():
-        g.db = mysql.connector.connect(
-            host=os.getenv('DB_HOST'),
-            user=os.getenv('DB_USER'),
-            password=os.getenv('DB_PASSWORD'),
-            database=os.getenv('DB_DATABASE'),
-            # ssl_verify_identity=True,
-            # ssl_ca='SSL/certs/ca-cert.pem'
-        )
-    return g.db
-
-
+# def getdb():
+#     if 'db' not in g or not g.db.is_connected():
+#         g.db = mysql.connector.connect(
+#             host=os.getenv('MYSQL_HOST', 'mysql_db'),  # default to 'mysql_db' for Docker setup
+#             user=os.getenv('MYSQL_USER', 'root'),
+#             password=os.getenv('MYSQL_PASSWORD', 'test_root'),
+#             database=os.getenv('MYSQL_DB', 'moodofmusic')
+#         )
+#     return g.db
 
 def close_db(e=None):
     db = g.pop('db', None)
 
     if db is not None and db.is_connected():
         db.close()
+
+def getdb():
+    if 'db' not in g:
+        g.db = None
+        attempts = 0
+        while g.db is None and attempts < 5:
+            try:
+                g.db = mysql.connector.connect(
+                    host='mysql_db',
+                    user='root',
+                    password='test_root',
+                    database='moodofmusic'
+                )
+            except mysql.connector.Error as err:
+                attempts += 1
+                print(f"Error: {err}. Retrying in 5 seconds...")
+                time.sleep(5)
+    if g.db is None:
+        raise ConnectionError("Failed to connect to the database after several attempts.")
+    print('Database Connected')
+    return g.db
+
+def initdb():
+    db = getdb()
+    cursor = db.cursor()
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS accounts (
+        accname VARCHAR(255) NOT NULL PRIMARY KEY
+    )
+    ''')
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS playlists (
+        playlistID VARCHAR(100) NOT NULL,
+        accname VARCHAR(255) NOT NULL,
+        pldate DATE,
+        prompt VARCHAR(10000),
+        image_url VARCHAR(512),
+        PRIMARY KEY (playlistID)
+    )
+    ''')
+    db.commit()
+    cursor.close()

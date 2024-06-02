@@ -6,10 +6,10 @@ import base64
 import openai
 import mysql.connector
 
-from flask import Flask, redirect, request, jsonify, session, render_template, url_for, flash
+from flask import Flask, redirect, request, jsonify, session, render_template, url_for, flash, g
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
-from utils import create_playlist_fun, generate_image, compress_image_to_b64, image_to_desc, convert_to_jpg_b64, getdb, close_db
+from utils import create_playlist_fun, generate_image, compress_image_to_b64, image_to_desc, convert_to_jpg_b64, getdb, close_db, initdb
 from PIL import Image 
 from io import BytesIO
 from openai import OpenAI, OpenAIError
@@ -34,6 +34,16 @@ API_BASE_URL = os.getenv('API_BASE_URL')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
 
+@app.teardown_appcontext
+def close_db(error):
+    db = g.pop('db', None)
+    if db is not None:
+        db.close()
+
+# Initialize database tables at startup
+with app.app_context():
+    initdb()
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -51,7 +61,6 @@ def login():
     }
 
     auth_url = f"{AUTH_URL}?{urllib.parse.urlencode(params)}"
-
     return redirect(auth_url)
 
 
@@ -89,11 +98,16 @@ def get_playlist_info(): #getting playlist name and image (to create mood)
     if datetime.now().timestamp() > session['expires_at']:
         return redirect('/refresh-token')
 
-    # print(request.method)
+    print(request.method)
+    if request.method == 'POST':
+        pl_name = request.form.get('playlist_name')
+        pl_theme = request.form.get('playlist_theme')
+        playlist_image = request.files.get('img')
+    else:
+        pl_name = request.form['playlist_name']
+        pl_theme = request.form['playlist_theme']
+        playlist_image = request.files['img']
 
-    pl_name = request.form.get('playlist_name')
-    pl_theme = request.form.get('playlist_theme')
-    playlist_image = request.files.get('img')
 
     if not pl_name or not pl_theme or not playlist_image:
         flash('All fields are required, including an image. Please try again.')
@@ -118,6 +132,8 @@ def get_playlist_info(): #getting playlist name and image (to create mood)
         return redirect('/playlistsform')
 
     session['playlist_image'] = result1
+    session['pl_name'] = pl_name
+    session['pl_theme'] = pl_theme
 
     create_playlist_fun(sp, user['id'], pl_name, 'Test playlist created using python!')
     preplaylist = sp.user_playlists(user=user['id'])
@@ -130,7 +146,7 @@ def get_playlist_info(): #getting playlist name and image (to create mood)
     try:
         image = generate_image(prmt)
     except OpenAIError as e:
-        print('e')
+        print(f'{e}')
             
     if image is None:
         sp.playlist_upload_cover_image(pplaylist, img_str)
@@ -159,13 +175,14 @@ def get_playlist_info(): #getting playlist name and image (to create mood)
             print(f"Duplicate entry found for user ID: {user['id']}")
         else:
             raise  # Re-raise the exception if it's not a duplicate entry error
-    print(f"image url is : {img_url}")
+    # print(f"image url is : {img_url}")
 
-    print('--------')
-    print(pplaylist)
-    print(user['id'])
-    print(datetime.today().strftime('%Y-%m-%d %H:%M:%S'))
-    print(prmt)
+    # print('--------')
+    # print(pplaylist)
+    # print(user['id'])
+    # print(datetime.today().strftime('%Y-%m-%d %H:%M:%S'))
+    # print(prmt)
+
     prmt_escaped = prmt.replace("'", "''")
     try:
         cursor.execute(f"INSERT INTO playlists (playlistID, accname, pldate, prompt, image_url) VALUES ('{pplaylist}', '{user['id']}', '{datetime.today().strftime('%Y-%m-%d %H:%M:%S')}', '{prmt_escaped}', '{img_url}')")
@@ -208,7 +225,7 @@ def create_playlist():
         artist = songitem[1]
         songsearch = sp.search(q=song)
         list_of_songs.append(songsearch['tracks']['items'][0]['uri'])
-    print(list_of_songs)
+    # print(list_of_songs)
 
     preplaylist =sp.user_playlists(user=user['id'])
     #print(preplaylist['items'][0]['id'])
