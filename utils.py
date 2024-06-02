@@ -1,14 +1,16 @@
 import spotipy
 import requests
-from openai import OpenAI
 import openai
-from PIL import Image
-from io import BytesIO
 import base64
 import mysql.connector
 import os
-from flask import g
 import time
+
+from openai import OpenAI
+from PIL import Image
+from io import BytesIO
+from flask import g
+
 
 
 def image_to_desc(base64_image, openai_key, pl_theme="None"):
