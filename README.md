@@ -1,107 +1,85 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mood of Music - README</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            margin: 0;
-            padding: 20px;
-        }
-        h1, h2, h3, h4, h5, h6 {
-            margin-top: 20px;
-        }
-        pre {
-            background-color: #f4f4f4;
-            padding: 10px;
-            border-radius: 5px;
-        }
-    </style>
-</head>
-<body>
-    <h1>Mood of Music</h1>
-    <p>Mood of Music allows users to upload an image of their environment, such as a landscape, and generate a Spotify playlist that matches the setting/theme. The generated playlist is added directly to the user's Spotify account and embedded into the webpage for immediate listening.</p>
-    
-    <h2>Features</h2>
-    <ul>
-        <li>Upload an image to generate a matching Spotify playlist.</li>
-        <li>Authenticate and connect to the user's Spotify account using the Spotify API.</li>
-        <li>Use OpenAI's API to analyze the image and generate playlist themes.</li>
-        <li>Embed the generated playlist in the webpage for easy access.</li>
-    </ul>
+# Mood of Music
 
-    <h2>Technologies Used</h2>
-    <ul>
-        <li>Python</li>
-        <li>Flask (for the web framework)</li>
-        <li>HTML, CSS, JavaScript (for the front-end)</li>
-        <li>Spotipy (for interacting with the Spotify API)</li>
-        <li>Docker (for containerization and deployment)</li>
-        <li>OpenAI API (for image analysis and playlist generation)</li>
-        <li>MySQL (for database storage)</li>
-    </ul>
+Mood of Music creates Spotify playlists from your environment images and embeds them on the site for instant listening.
 
-    <h2>Setup and Installation</h2>
-    <h3>Prerequisites</h3>
-    <ul>
-        <li>Python 3.8 or higher</li>
-        <li>Docker</li>
-        <li>Spotify Developer Account with credentials</li>
-        <li>OpenAI API key</li>
-        <li>MySQL Database</li>
-    </ul>
+## Description
 
-    <h3>Steps to Run</h3>
-    <ol>
-        <li>Clone the repository:
-            <pre><code>git clone https://github.com/yourusername/mood-of-music.git</code></pre>
-        </li>
-        <li>Navigate to the project directory:
-            <pre><code>cd mood-of-music</code></pre>
-        </li>
-        <li>Create a `.env` file and add your Spotify and OpenAI credentials:
-            <pre><code>
-APP_SECRET_KEY=your_secret_key
-CLIENT_ID=your_spotify_client_id
-CLIENT_SECRET=your_spotify_client_secret
-REDIRECT_URI=http://localhost:5001/callback
-AUTH_URL=https://accounts.spotify.com/authorize
-TOKEN_URL=https://accounts.spotify.com/api/token
-API_BASE_URL=https://api.spotify.com/v1
-OPENAI_API_KEY=your_openai_api_key
-MYSQL_HOST=your_mysql_host
-MYSQL_USER=your_mysql_user
-MYSQL_PASSWORD=your_mysql_password
-MYSQL_DB=your_mysql_db_name
-            </code></pre>
-        </li>
-        <li>Build and run the Docker container:
-            <pre><code>docker-compose up --build</code></pre>
-        </li>
-        <li>Access the application in your web browser at <a href="http://localhost:5001">http://localhost:5001</a>.</li>
-    </ol>
+Mood of Music transforms your environment into a personalized auditory experience! Simply upload an image of your surroundings—be it a serene landscape or a bustling cityscape—and watch as the app curates a Spotify playlist that perfectly matches the mood. The best part? The playlist is instantly added to your Spotify account and seamlessly embedded on the website for you to enjoy without missing a beat.
 
-    <h2>Usage</h2>
-    <ol>
-        <li>Navigate to the home page.</li>
-        <li>Log in with your Spotify account.</li>
-        <li>Fill out the form with the playlist name, theme, and upload an image.</li>
-        <li>Submit the form to generate the playlist.</li>
-        <li>Listen to the embedded playlist on the webpage.</li>
-    </ol>
+## Features
 
-    <h2>Code Overview</h2>
-    <h3>main.py</h3>
-    <p>This file contains the Flask application setup, routes, and logic for handling user authentication, playlist creation, and integration with the Spotify and OpenAI APIs.</p>
+- **Image Upload**: Upload an image of your environment, such as a landscape.
+- **Playlist Generation**: Generates a playlist of songs that match the setting/theme.
+- **Spotify Integration**: Adds the playlist directly to your Spotify account.
+- **Embedded Playlist**: The generated playlist is embedded on the website for immediate listening.
 
-    <h3>utils.py</h3>
-    <p>This file includes utility functions for interacting with the Spotify API, processing images, and generating descriptions and playlists using OpenAI's API.</p>
+## Technologies Used
 
+- **Python**: Backend logic
+- **Flask**: Web framework
+- **HTML/CSS/JavaScript**: Frontend development
+- **Spotify API**: Authentication and playlist management
+- **Spotipy**: Python library for Spotify
+- **Docker**: Containerization and deployment
+- **OpenAI API**: Image description and playlist generation
 
-    <h2>Contact</h2>
-    <p>If you have any questions, feel free to open an issue or contact me at <a href="mailto:your.email@example.com">your.email@example.com</a>.</p>
-</body>
-</html>
+## Getting Started
+
+Follow these steps to get the app up and running on your local machine.
+
+### Prerequisites
+
+- Python 3.8 or higher
+- Docker
+- Spotify Developer Account
+- OpenAI API Key
+
+### Installation
+
+1. **Clone the repository**:
+    ```sh
+    git clone https://github.com/yourusername/mood-of-music.git
+    cd mood-of-music
+    ```
+
+2. **Set up environment variables**:
+    Create a `.env` file in the root directory and add your credentials:
+    ```env
+    CLIENT_ID=your_spotify_client_id
+    CLIENT_SECRET=your_spotify_client_secret
+    REDIRECT_URI=http://localhost:5001/callback
+    AUTH_URL=https://accounts.spotify.com/authorize
+    TOKEN_URL=https://accounts.spotify.com/api/token
+    API_BASE_URL=https://api.spotify.com/v1
+    OPENAI_API_KEY=your_openai_api_key
+    APP_SECRET_KEY=your_app_secret_key
+    ```
+
+3. **Build and run the Docker container**:
+    ```sh
+    docker-compose up --build
+    ```
+
+### Usage
+
+1. Open your browser and go to `http://localhost:5001`.
+2. Log in with your Spotify account.
+3. Upload an image, enter a playlist name and theme, and submit the form.
+4. The app will generate a playlist and add it to your Spotify account.
+5. Listen to the generated playlist embedded on the website.
+
+## Contributing
+
+1. Fork the repository.
+2. Create a new branch (`git checkout -b feature/your-feature`).
+3. Commit your changes (`git commit -m 'Add some feature'`).
+4. Push to the branch (`git push origin feature/your-feature`).
+5. Open a pull request.
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+## Contact
+
+For any questions or suggestions, please contact [your-email@example.com](mailto:your-email@example.com).
