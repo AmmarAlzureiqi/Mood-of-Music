@@ -61,7 +61,6 @@ Follow these steps to get the app up and running on your local machine.
     DB_USER=database_root
     DB_PASSWORD=database_password
     DB_DATABASE=database_name
-
     DATABASE_URL=your_database_url
     ```
 
@@ -78,18 +77,6 @@ Follow these steps to get the app up and running on your local machine.
 4. The app will generate a playlist and add it to your Spotify account.
 5. Listen to the generated playlist embedded on the website.
 
-## Contributing
-
-1. Fork the repository.
-2. Create a new branch (`git checkout -b feature/your-feature`).
-3. Commit your changes (`git commit -m 'Add some feature'`).
-4. Push to the branch (`git push origin feature/your-feature`).
-5. Open a pull request.
-
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
 ## Contact
 
-For any questions or suggestions, please contact [your-email@example.com](mailto:your-email@example.com).
+For any questions or suggestions, please contact [alzureiqi2@gmail.com](mailto:alzureiqi2@gmail.com).
