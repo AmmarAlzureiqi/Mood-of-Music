@@ -45,14 +45,24 @@ Follow these steps to get the app up and running on your local machine.
 2. **Set up environment variables**:
     Create a `.env` file in the root directory and add your credentials:
     ```env
+    APP_SECRET_KEY=your_flask_app_secret_key
+
+    OPENAI_API_KEY=your_openai_api_key
+
     CLIENT_ID=your_spotify_client_id
     CLIENT_SECRET=your_spotify_client_secret
     REDIRECT_URI=http://localhost:5001/callback
+
     AUTH_URL=https://accounts.spotify.com/authorize
     TOKEN_URL=https://accounts.spotify.com/api/token
     API_BASE_URL=https://api.spotify.com/v1
-    OPENAI_API_KEY=your_openai_api_key
-    APP_SECRET_KEY=your_app_secret_key
+
+    DB_HOST=database_host
+    DB_USER=database_root
+    DB_PASSWORD=database_password
+    DB_DATABASE=database_name
+
+    DATABASE_URL=your_database_url
     ```
 
 3. **Build and run the Docker container**:
