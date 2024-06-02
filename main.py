@@ -214,6 +214,8 @@ def create_playlist():
     # print(prompt)
     songlist = response1[1].split('&,')
 
+    print(songlist)
+
     if len(songlist) == 1:
         songlist = response1[1].split('&),')
 
